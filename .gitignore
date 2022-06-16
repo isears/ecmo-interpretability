@@ -1,0 +1,9 @@
+/mimiciv
+/mimicts
+/.venv
+/logs
+/.vscode
+/.idea
+/cache
+**/__pycache__
+**/*.egg-info
