@@ -2,7 +2,6 @@ import os.path
 import torch
 import pandas as pd
 import numpy as np
-from torch.nn.utils.rnn import pad_sequence
 from torch.nn.functional import pad
 from typing import List
 import json
@@ -24,7 +23,7 @@ def get_feature_labels():
 
 
 class FileBasedDataset(torch.utils.data.Dataset):
-    def __init__(self, processed_mimic_path: str, cut_sample: pd.DataFrame):
+    def __init__(self, processed_mimic_path: str, stay_ids: List[int]):
 
         print(f"[{type(self).__name__}] Initializing dataset...")
 
@@ -32,9 +31,10 @@ class FileBasedDataset(torch.utils.data.Dataset):
             pd.read_csv("cache/included_features.csv").squeeze("columns").to_list()
         )
 
-        self.cut_sample = cut_sample
+        self.stay_ids = stay_ids
+        self.labels = pd.read_csv("cache/labels.csv", index_col="stay_id")
 
-        print(f"\tExamples: {len(self.cut_sample)}")
+        print(f"\tExamples: {len(self.stay_ids)}")
         print(f"\tFeatures: {len(self.feature_ids)}")
 
         self.processed_mimic_path = processed_mimic_path
@@ -47,7 +47,7 @@ class FileBasedDataset(torch.utils.data.Dataset):
                 f"[{type(self).__name__}] Failed to load metadata. Computing maximum length, this may take some time..."
             )
             self.max_len = 0
-            for sid in self.cut_sample["stay_id"].to_list():
+            for sid in self.stay_ids:
                 ce = pd.read_csv(
                     f"{processed_mimic_path}/{sid}/chartevents_features.csv", nrows=1
                 )
@@ -60,45 +60,13 @@ class FileBasedDataset(torch.utils.data.Dataset):
 
         print(f"[{type(self).__name__}] Dataset initialization complete")
 
-    def maxlen_padmask_collate(self, batch):
-        for idx, (X, y) in enumerate(batch):
-            actual_len = X.shape[1]
-
-            assert actual_len < self.max_len
-
-            pad_mask = torch.ones(actual_len)
-            X_mod = pad(X, (self.max_len - actual_len, 0), mode="constant", value=0.0)
-
-            pad_mask = pad(
-                pad_mask, (self.max_len - actual_len, 0), mode="constant", value=0.0
-            )
-
-            batch[idx] = (X_mod.T, y, pad_mask)
-
-        X = torch.stack([X for X, _, _ in batch], dim=0)
-        y = torch.stack([Y for _, Y, _ in batch], dim=0)
-        pad_mask = torch.stack([pad_mask for _, _, pad_mask in batch], dim=0)
-
-        raise NotImplemented
-        return X.float(), y.float(), pad_mask.int()
-
-    def maxlen_padmask_collate_nopadret(self, batch):
-        """
-        For compatibility with scikit learn
-        * If using this method, remember to remove the padmask from X in model
-        """
-        X, y, pad_mask = self.maxlen_padmask_collate(batch)
-        X_and_pad = torch.cat((X, torch.unsqueeze(pad_mask, dim=-1)), dim=-1)
-        return X_and_pad, y
-
     def __len__(self):
-        return len(self.cut_sample)
+        return len(self.stay_ids)
 
     def __getitem__(self, index: int):
-        stay_id = self.cut_sample["stay_id"].iloc[index]
-        Y = torch.tensor(self.cut_sample["label"].iloc[index])
+        stay_id = self.stay_ids[index]
+        Y = torch.tensor(self.labels["label"].loc[stay_id])
         Y = torch.unsqueeze(Y, 0)
-        cutidx = self.cut_sample["cutidx"].iloc[index]
 
         # Features
         # Ensures every example has a sequence length of at least 1
@@ -114,7 +82,6 @@ class FileBasedDataset(torch.utils.data.Dataset):
             if os.path.exists(full_path):
                 curr_features = pd.read_csv(
                     full_path,
-                    usecols=list(range(0, cutidx + 1)),
                     index_col="feature_id",
                 )
 
@@ -130,7 +97,7 @@ class FileBasedDataset(torch.utils.data.Dataset):
 
         # Pad to maxlen
         actual_len = X.shape[1]
-        assert actual_len < self.max_len
+        assert actual_len <= self.max_len, f"{actual_len} / {self.max_len}"
         pad_mask = torch.ones(actual_len)
         # TODO: transform here b/c the way TST expects it isn't the typical convention
         X_mod = pad(X, (0, self.max_len - actual_len), mode="constant", value=0.0).T
@@ -139,9 +106,9 @@ class FileBasedDataset(torch.utils.data.Dataset):
         )
 
         # Put pad as last "feature" in X for compatibility w/scikit
-        X_and_pad = torch.cat((X_mod, torch.unsqueeze(pad_mask, dim=-1)), dim=-1)
+        # X_and_pad = torch.cat((X_mod, torch.unsqueeze(pad_mask, dim=-1)), dim=-1)
 
-        return X_and_pad.float(), Y.float()
+        return X_mod.float(), Y.float(), pad_mask.float()
 
 
 def demo(dl):
@@ -166,12 +133,11 @@ def get_label_prevalence(dl):
 
 
 if __name__ == "__main__":
-    sample_cuts = pd.read_csv("cache/sample_cuts.csv")
-    ds = FileBasedDataset("./mimicts", cut_sample=sample_cuts)
+    ic = pd.read_csv("cache/included_stayids.csv").squeeze("columns").to_list()
+    ds = FileBasedDataset("./mimicts", stay_ids=ic)
 
     dl = torch.utils.data.DataLoader(
         ds,
-        collate_fn=ds.maxlen_padmask_collate,
         num_workers=16,
         batch_size=4,
         pin_memory=True,

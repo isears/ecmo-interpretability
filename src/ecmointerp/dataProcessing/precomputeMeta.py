@@ -13,7 +13,8 @@ def compute_max_seq_len() -> int:
     max_len = 0
     for sid in stay_ids:
         ce = pd.read_csv(f"mimicts/{sid}/chartevents_features.csv", nrows=1)
-        seq_len = len(ce.columns) - 1
+
+        seq_len = len(ce.columns)
 
         if seq_len > max_len:
             max_len = seq_len
