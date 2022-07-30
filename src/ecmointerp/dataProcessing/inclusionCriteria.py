@@ -3,17 +3,39 @@ Apply inclusion criteria to generate a list of included stay ids
 """
 import pandas as pd
 import dask.dataframe as dd
-from ecmointerp.dataProcessing.util import all_inclusive_dtypes
-import datetime
 
 
 class InclusionCriteria:
     def __init__(self):
         self.all_stays = pd.read_csv(
             "mimiciv/icu/icustays.csv",
-            usecols=["stay_id", "intime", "outtime"],
-            dtype={"stay_id": "int", "intime": "str", "outtime": "str"},
+            usecols=["stay_id", "hadm_id", "intime", "outtime"],
+            dtype={
+                "stay_id": "int",
+                "hadm_id": "int",
+                "intime": "str",
+                "outtime": "str",
+            },
             parse_dates=["intime", "outtime"],
+        )
+
+        self.admissions = pd.read_csv(
+            "mimiciv/core/admissions.csv",
+            dtype={
+                "subject_id": "int",
+                "hadm_id": "int",
+                "admittime": "str",
+            },
+            parse_dates=["admittime"],
+        )
+
+        self.patients = pd.read_csv(
+            "mimiciv/core/patients.csv",
+            dtype={"subject_id": "int", "anchor_age": "int", "anchor_year": "int"},
+        )
+
+        self.admission_patients = self.admissions.merge(
+            self.patients, how="left", on="subject_id"
         )
 
     def _exclude_nodata(self):
@@ -33,63 +55,33 @@ class InclusionCriteria:
             self.all_stays["stay_id"].isin(chartevents_stay_ids)
         ]
 
-    def _exclude_short_stays(self, time_hours=24):
+    def _exclude_double_stays(self):
         self.all_stays = self.all_stays[
-            self.all_stays.apply(
-                lambda row: (row["outtime"] - row["intime"])
-                > datetime.timedelta(hours=time_hours),
-                axis=1,
-            )
+            self.all_stays.groupby("hadm_id")["hadm_id"].transform("size") == 1
         ]
 
-    def _exclude_long_stays(self, time_hours=(24 * 30)):
-        self.all_stays = self.all_stays[
-            self.all_stays.apply(
-                lambda row: (row["outtime"] - row["intime"])
-                < datetime.timedelta(hours=time_hours),
-                axis=1,
-            )
+    def _exclude_under_18(self):
+        self.admission_patients["zero_year"] = (
+            self.admission_patients["anchor_year"]
+            - self.admission_patients["anchor_age"]
+        )
+        self.admission_patients["age_at_admission"] = (
+            self.admission_patients["admittime"].dt.year
+            - self.admission_patients["zero_year"]
+        )
+        over_18_admissions = self.admission_patients[
+            self.admission_patients["age_at_admission"] > 18
         ]
 
-    def _exclude_early_sepsis(self, time_hours=24):
-        """
-        Exclude patients that arrive to the ICU qualifying for sepsis3
-        """
-        sepsis_df = pd.read_csv(
-            "mimiciv/derived/sepsis3.csv",
-            parse_dates=[
-                "sofa_time",
-                "suspected_infection_time",
-                "culture_time",
-                "antibiotic_time",
-            ],
-        )
-        sepsis_df["sepsis_time"] = sepsis_df.apply(
-            lambda row: max(row["sofa_time"], row["suspected_infection_time"]), axis=1
-        )
-
-        sepsis_df = sepsis_df.merge(
-            self.all_stays[["stay_id", "intime"]], how="left", on="stay_id"
-        )
-
-        early_sepsis_stays = sepsis_df[
-            sepsis_df.apply(
-                lambda row: row["sepsis_time"] - row["intime"]
-                < datetime.timedelta(hours=time_hours),
-                axis=1,
-            )
-        ]["stay_id"]
-
         self.all_stays = self.all_stays[
-            ~self.all_stays["stay_id"].isin(early_sepsis_stays)
+            self.all_stays["hadm_id"].isin(over_18_admissions["hadm_id"])
         ]
 
     def get_included(self):
         order = [
             self._exclude_nodata,
-            self._exclude_short_stays,
-            self._exclude_long_stays,
-            self._exclude_early_sepsis,
+            self._exclude_double_stays,
+            self._exclude_under_18,
         ]
 
         for func in order:
