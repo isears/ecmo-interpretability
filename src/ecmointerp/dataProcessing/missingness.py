@@ -1,6 +1,6 @@
 import dask.dataframe as dd
 import pandas as pd
-from tabsep.dataProcessing.util import all_inclusive_dtypes
+from ecmointerp.dataProcessing.util import all_inclusive_dtypes
 
 
 def generate_missingness(threshold: float) -> pd.Series:

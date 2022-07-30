@@ -1,6 +1,4 @@
-# TabNet Sepsis Model
-
-Code for "Prediction of Sepsis in the Intensive Care Unit Using TabNet - a Novel Deep Learning Approach."
+# Interpreting ECMO Complication Predictions
 
 ## Development Setup
 
@@ -8,8 +6,8 @@ Code for "Prediction of Sepsis in the Intensive Care Unit Using TabNet - a Novel
 pip install --editable ./
 ```
 
-Import submodules from the `tabsep` package. E.g.:
+Import submodules from the `ecmointerp` package. E.g.:
 
 ```python
-from tabsep.dataProcessing.fileBasedDataset import FileBasedDataset
+from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset
 ```

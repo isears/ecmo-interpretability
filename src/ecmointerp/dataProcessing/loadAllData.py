@@ -4,7 +4,7 @@ Load all data with dask like a wild man
 import pandas as pd
 import dask
 import dask.dataframe as dd
-from tabsep.dataProcessing.util import all_inclusive_dtypes
+from ecmointerp.dataProcessing.util import all_inclusive_dtypes
 import datetime
 import random
 from typing import List

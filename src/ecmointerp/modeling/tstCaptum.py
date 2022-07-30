@@ -6,13 +6,13 @@ from captum.attr import (
 )
 import torch
 import os
-from tabsep.modeling.tstImpl import TstOneInput, TSTransformerEncoderClassiregressor
-from tabsep.modeling.timeseriesCV import TensorBasedDataset
+from ecmointerp.modeling.tstImpl import TstOneInput, TSTransformerEncoderClassiregressor
+from ecmointerp.modeling.timeseriesCV import TensorBasedDataset
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from tabsep import config
+from ecmointerp import config
 
 
 torch.manual_seed(42)

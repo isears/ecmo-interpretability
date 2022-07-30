@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from tabsep.dataProcessing.fileBasedDataset import get_feature_labels
-from tabsep import config
+from ecmointerp.dataProcessing.fileBasedDataset import get_feature_labels
+from ecmointerp import config
 
 
 def revise_pad(pm):

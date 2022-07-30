@@ -2,7 +2,7 @@
 Try to figure out when, on average, a feature appears in ICU stays
 """
 import pandas as pd
-from tabsep.dataProcessing.fileBasedDataset import FileBasedDataset, get_feature_labels
+from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset, get_feature_labels
 
 # importing the required library
 import seaborn as sns

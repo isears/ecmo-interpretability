@@ -9,7 +9,7 @@ from torch.nn.modules import (
     TransformerEncoderLayer,
 )
 import pandas as pd
-from tabsep.modeling import EarlyStopping
+from ecmointerp.modeling import EarlyStopping
 
 # Could also be learnable:
 # https://github.com/gzerveas/mvts_transformer/blob/fe3b539ccc2162f55cf7196c8edc7b46b41e7267/src/models/ts_transformer.py#L105

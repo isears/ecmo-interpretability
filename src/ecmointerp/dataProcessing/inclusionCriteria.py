@@ -3,7 +3,7 @@ Apply inclusion criteria to generate a list of included stay ids
 """
 import pandas as pd
 import dask.dataframe as dd
-from tabsep.dataProcessing.util import all_inclusive_dtypes
+from ecmointerp.dataProcessing.util import all_inclusive_dtypes
 import datetime
 
 

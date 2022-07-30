@@ -5,9 +5,9 @@ Train single transformer model for downstream analysis
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
-from tabsep.modeling.timeseriesCV import TstWrapper, load_to_mem
+from ecmointerp.modeling.timeseriesCV import TstWrapper, load_to_mem
 import pandas as pd
-from tabsep.dataProcessing.fileBasedDataset import FileBasedDataset
+from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset
 import os
 import datetime
 

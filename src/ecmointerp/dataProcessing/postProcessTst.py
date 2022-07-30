@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Tuple
 import random
 import sys
-from tabsep import config
+from ecmointerp import config
 
 
 def do_random_cut(stay_id: int) -> int:

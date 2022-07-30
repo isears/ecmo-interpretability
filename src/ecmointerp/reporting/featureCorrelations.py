@@ -1,7 +1,7 @@
 import torch
-from tabsep import config
+from ecmointerp import config
 import numpy as np
-from tabsep.dataProcessing.fileBasedDataset import get_feature_labels
+from ecmointerp.dataProcessing.fileBasedDataset import get_feature_labels
 import matplotlib.pyplot as plt
 import scipy.stats
 import pandas as pd

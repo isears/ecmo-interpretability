@@ -6,13 +6,13 @@ import torch
 import numpy as np
 import pandas as pd
 import scipy.stats as st
-from tabsep.dataProcessing.fileBasedDataset import FileBasedDataset
-from tabsep.modeling import EarlyStopping
+from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset
+from ecmointerp.modeling import EarlyStopping
 from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from tabsep.modeling.tstImpl import TSTransformerEncoderClassiregressor, AdamW
+from ecmointerp.modeling.tstImpl import TSTransformerEncoderClassiregressor, AdamW
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 import os

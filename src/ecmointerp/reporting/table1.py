@@ -164,7 +164,7 @@ class Table1Generator(object):
                 return self.name == __o.name and self.__class__ == __o.__class__
 
         cci = dict()
-        with open("src/tabsep/reporting/cci.json", "r") as f:
+        with open("src/ecmointerp/reporting/cci.json", "r") as f:
             cci = json.load(f)
 
         comorbidities = [

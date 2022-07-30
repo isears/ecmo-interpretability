@@ -4,16 +4,16 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="tabsep",
+    name="ecmointerp",
     version="0.0.1",
     author="Isaac Sears",
     author_email="isaac.j.sears@gmail.com",
-    description="Tabnet Sepsis",
+    description="ECMO Interpretability",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/isears/tabnet-sepsis",
+    url="https://github.com/isears/ecmo-interpretability",
     project_urls={
-        "Bug Tracker": "https://github.com/isears/tabnet-sepsis/issues",
+        "Bug Tracker": "https://github.com/isears/ecmo-interpretability/issues",
     },
     classifiers=[
         "Programming Language :: Python :: 3",

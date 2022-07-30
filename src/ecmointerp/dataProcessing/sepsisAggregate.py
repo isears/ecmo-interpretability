@@ -4,7 +4,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from dask.diagnostics import ProgressBar
-from tabsep import config
+from ecmointerp import config
 
 
 class SepsisAggregator(BaseAggregator):

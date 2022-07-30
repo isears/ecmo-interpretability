@@ -3,7 +3,7 @@ from sklearn.metrics import auc as auc_fn
 from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
-from tabsep.modeling.timeseriesCV import CVResults, SingleCVResult
+from ecmointerp.modeling.timeseriesCV import CVResults, SingleCVResult
 
 
 if __name__ == "__main__":
