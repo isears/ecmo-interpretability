@@ -87,6 +87,44 @@ class InclusionCriteria:
             )
         ]
 
+    def _get_ecmo_sids(self):
+        chartevents_dd = dd.read_csv(
+            "mimiciv/icu/chartevents.csv",
+            assume_missing=True,
+            blocksize=100e6,
+            dtype={
+                "subject_id": "int",
+                "hadm_id": "int",
+                "stay_id": "int",
+                "charttime": "object",
+                "storetime": "object",
+                "itemid": "int",
+                "value": "object",
+                "valueuom": "object",
+                "warning": "object",
+                "valuenum": "float",
+            },
+        )
+
+        ecmo_circuit_config_ids = [229268, 229840]
+        ecmo_flow_ids = [229270, 229842]
+
+        # Most restrictive filtering: must have a configuration event and at least one flow measurement
+        ecmo_events = chartevents_dd[
+            chartevents_dd["itemid"].isin(ecmo_flow_ids + ecmo_circuit_config_ids)
+        ].compute(scheduler="processes")
+
+        ecmo_by_stay = ecmo_events.groupby("stay_id", as_index=False).agg(
+            has_config=("itemid", lambda x: x.isin(ecmo_circuit_config_ids).any()),
+            has_flow=("itemid", lambda x: x.isin(ecmo_flow_ids).any()),
+        )
+
+        config_and_flow = ecmo_by_stay[
+            ecmo_by_stay["has_config"] & ecmo_by_stay["has_flow"]
+        ]
+
+        return config_and_flow["stay_id"].to_list()
+
     def get_included(self):
         order = [
             self._exclude_nodata,
@@ -101,8 +139,19 @@ class InclusionCriteria:
             count_after = len(self.all_stays)
             print(f"{func.__name__} excluded {count_before - count_after} stay ids")
 
-        print(f"Saving remaining {len(self.all_stays)} stay ids to disk")
-        self.all_stays["stay_id"].to_csv("cache/included_stayids.csv", index=False)
+        # this takes 4- or maybe even 5-ever
+        print("Finding ECMO ids, this will take some time...")
+        ecmo_sids = self._get_ecmo_sids()
+        print(f"Found {len(ecmo_sids)}")
+
+        base_dataset = self.all_stays[~self.all_stays["stay_id"].isin(ecmo_sids)]
+        ecmo_dataset = self.all_stays[self.all_stays["stay_id"].isin(ecmo_sids)]
+
+        print(f"Final size of base dataset: {len(base_dataset)}")
+        print(f"Final size of ecmo dataset: {len(ecmo_dataset)}")
+
+        base_dataset["stay_id"].to_csv("cache/included_stayids.csv", index=False)
+        ecmo_dataset["stay_id"].to_csv("cache/ecmo_stayids.csv", index=False)
         return self.all_stays["stay_id"].to_list()
 
 
