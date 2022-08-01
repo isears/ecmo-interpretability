@@ -7,7 +7,7 @@ import datetime
 
 
 class InclusionCriteria:
-    def __init__(self):
+    def __init__(self, ecmo=False):
         self.all_stays = pd.read_csv(
             "mimiciv/icu/icustays.csv",
             usecols=["stay_id", "hadm_id", "intime", "outtime"],
@@ -39,29 +39,32 @@ class InclusionCriteria:
             self.patients, how="left", on="subject_id"
         )
 
-    def _exclude_nodata(self):
+    def _exclude_nodata(self, df):
         """
         Exclude patients w/no chartevents
         """
         chartevents = dd.read_csv(
             "mimiciv/icu/chartevents.csv",
-            usecols=["stay_id", "subject_id"],
+            usecols=["stay_id"],
+            dtype={
+                "stay_id": "int",
+            },
             blocksize=100e6,
         )
 
         chartevents_stay_ids = (
             chartevents["stay_id"].unique().compute(scheduler="processes")
         )
-        self.all_stays = self.all_stays[
-            self.all_stays["stay_id"].isin(chartevents_stay_ids)
-        ]
+        ret = df[df["stay_id"].isin(chartevents_stay_ids)]
 
-    def _exclude_double_stays(self):
-        self.all_stays = self.all_stays[
-            self.all_stays.groupby("hadm_id")["hadm_id"].transform("size") == 1
-        ]
+        return ret
 
-    def _exclude_under_18(self):
+    def _exclude_double_stays(self, df):
+        hadm_stay_counts = df.groupby("hadm_id").apply(len)
+        singleton_hadms = hadm_stay_counts[hadm_stay_counts == 1].index.to_list()
+        return df[df["hadm_id"].isin(singleton_hadms)]
+
+    def _exclude_under_18(self, df):
         self.admission_patients["zero_year"] = (
             self.admission_patients["anchor_year"]
             - self.admission_patients["anchor_age"]
@@ -74,13 +77,11 @@ class InclusionCriteria:
             self.admission_patients["age_at_admission"] > 18
         ]
 
-        self.all_stays = self.all_stays[
-            self.all_stays["hadm_id"].isin(over_18_admissions["hadm_id"])
-        ]
+        return df[df["hadm_id"].isin(over_18_admissions["hadm_id"])]
 
-    def _exclude_long_stays(self, time_hours=(24 * 30)):
-        self.all_stays = self.all_stays[
-            self.all_stays.apply(
+    def _exclude_long_stays(self, df, time_hours=(24 * 90)):
+        return df[
+            df.apply(
                 lambda row: (row["outtime"] - row["intime"])
                 < datetime.timedelta(hours=time_hours),
                 axis=1,
@@ -133,26 +134,48 @@ class InclusionCriteria:
             self._exclude_long_stays,
         ]
 
-        for func in order:
-            count_before = len(self.all_stays)
-            func()
-            count_after = len(self.all_stays)
-            print(f"{func.__name__} excluded {count_before - count_after} stay ids")
-
+        base_dataset = self.all_stays
         # this takes 4- or maybe even 5-ever
         print("Finding ECMO ids, this will take some time...")
         ecmo_sids = self._get_ecmo_sids()
         print(f"Found {len(ecmo_sids)}")
+        ecmo_dataset = base_dataset[base_dataset["stay_id"].isin(ecmo_sids)]
+        assert len(ecmo_dataset) == len(ecmo_sids)
 
-        base_dataset = self.all_stays[~self.all_stays["stay_id"].isin(ecmo_sids)]
-        ecmo_dataset = self.all_stays[self.all_stays["stay_id"].isin(ecmo_sids)]
+        before_len = len(base_dataset)
+        base_dataset = base_dataset[~base_dataset["stay_id"].isin(ecmo_sids)]
+        after_len = len(base_dataset)
+
+        assert after_len < before_len
+
+        for func in order:
+            count_before = len(base_dataset)
+            base_dataset = func(base_dataset)
+            count_after = len(base_dataset)
+            assert not (
+                base_dataset["stay_id"].isin(ecmo_sids)
+            ).any(), f"Failure after {func.__name__}"
+
+            print(
+                f"[Base Dataset] {func.__name__} excluded {count_before - count_after} stay ids"
+            )
+
+            count_before = len(ecmo_dataset)
+            ecmo_dataset = func(ecmo_dataset)
+            count_after = len(ecmo_dataset)
+            print(
+                f"[ECMO Dataset] {func.__name__} excluded {count_before - count_after} stay ids"
+            )
+
+        assert base_dataset["stay_id"].nunique() == len(base_dataset)
+        assert ecmo_dataset["stay_id"].nunique() == len(ecmo_dataset)
 
         print(f"Final size of base dataset: {len(base_dataset)}")
         print(f"Final size of ecmo dataset: {len(ecmo_dataset)}")
 
         base_dataset["stay_id"].to_csv("cache/included_stayids.csv", index=False)
         ecmo_dataset["stay_id"].to_csv("cache/ecmo_stayids.csv", index=False)
-        return self.all_stays["stay_id"].to_list()
+        return base_dataset["stay_id"].to_list()
 
 
 if __name__ == "__main__":
