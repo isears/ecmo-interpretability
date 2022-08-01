@@ -14,7 +14,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from ecmointerp.modeling.tstImpl import TSTransformerEncoderClassiregressor, AdamW
 from sklearn.linear_model import LogisticRegression
-from xgboost import XGBClassifier
 import os
 from sklearn.metrics import roc_auc_score, log_loss, roc_curve, make_scorer
 
@@ -329,11 +328,10 @@ if __name__ == "__main__":
             FeatureScaler(), Ts2TabTransformer(), LogisticRegression(max_iter=1e7)
         ),
         "LR": make_pipeline(Ts2TabTransformer(), LogisticRegression()),
-        "XGBOOST": XGBClassifier(),
         "TST": TstWrapper(),
     }
 
-    job_config = {"LR": 1, "TST": 1, "XGBOOST": 11}
+    job_config = {"LR": 1, "TST": 1}
 
     if model_name == "all":
 

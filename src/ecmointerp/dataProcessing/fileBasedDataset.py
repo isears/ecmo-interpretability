@@ -65,7 +65,8 @@ class FileBasedDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int):
         stay_id = self.stay_ids[index]
-        Y = torch.tensor(self.labels["label"].loc[stay_id])
+        # TODO: convert to multilabel
+        Y = torch.tensor(self.labels["Hemorrhage"].astype(float).loc[stay_id])
         Y = torch.unsqueeze(Y, 0)
 
         # Features
@@ -144,3 +145,4 @@ if __name__ == "__main__":
     )
 
     get_label_prevalence(dl)
+    print("Done")

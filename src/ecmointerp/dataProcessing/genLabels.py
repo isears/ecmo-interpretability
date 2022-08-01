@@ -95,7 +95,10 @@ def do_agg(stay_ids):
         labels_df, how="left", left_on="hadm_id", right_index=True
     )
 
-    return labels_df[["stay_id"] + list(label_codes.keys())]
+    labels_df = labels_df[["stay_id"] + list(label_codes.keys())]
+    labels_df = labels_df.fillna(False)
+
+    return labels_df
 
 
 if __name__ == "__main__":
