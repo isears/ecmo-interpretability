@@ -108,7 +108,7 @@ class FileBasedDataset(torch.utils.data.Dataset):
         # Put pad as last "feature" in X for compatibility w/scikit
         # X_and_pad = torch.cat((X_mod, torch.unsqueeze(pad_mask, dim=-1)), dim=-1)
 
-        return X_mod.float(), Y.float(), pad_mask.float()
+        return X_mod.float(), Y.float(), pad_mask.bool()
 
 
 def demo(dl):

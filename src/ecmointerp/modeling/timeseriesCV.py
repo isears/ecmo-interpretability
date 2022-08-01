@@ -149,7 +149,7 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
         # TST params
         d_model=128,
         dim_feedforward=256,
-        max_len=120,
+        max_len=121,
         n_heads=16,
         num_classes=1,
         num_layers=3,
@@ -176,15 +176,14 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
 
         return X, padding_masks
 
-    def fit(self, X, y, use_es=False, X_valid=None, y_valid=None):
-        # scikit boilerplate
-        self.classes_ = np.array([0.0, 1.0])
-        # original_y_shape = y.shape
-        # self.classes_, y = np.unique(y, return_inverse=True)
-        # y = torch.reshape(torch.tensor(y), original_y_shape).float()  # re-torch y
+    def train(self, train_dl, use_es=False, valid_dl=None):
+        if use_es:
+            assert valid_dl is not None
+
+        n_features = len(pd.read_csv("cache/included_features.csv"))
 
         model = TSTransformerEncoderClassiregressor(
-            feat_dim=X.shape[-1] - 1,  # -1 for padding mask
+            feat_dim=n_features,
             d_model=self.d_model,
             dim_feedforward=self.dim_feedforward,
             max_len=self.max_len,
@@ -201,39 +200,18 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
         # Current impl is optimistic but does not run under CV
         es = EarlyStopping(patience=5)
 
-        X_unpacked, padding_masks = TstWrapper._unwrap_X_padmask(X)
-
-        gpuLoader = torch.utils.data.DataLoader(
-            TensorBasedDataset(X_unpacked, y, padding_masks),
-            batch_size=self.batch_size,
-            num_workers=CORES_AVAILABLE,
-            pin_memory=True,
-            drop_last=False,
-        )
-
-        if use_es:
-            assert X_valid is not None and y_valid is not None
-            X_valid_unpacked, pm_valid = TstWrapper._unwrap_X_padmask(X_valid)
-
-            validGpuLoader = torch.utils.data.DataLoader(
-                TensorBasedDataset(X_valid_unpacked, y_valid, pm_valid),
-                batch_size=self.batch_size,
-                num_workers=CORES_AVAILABLE,
-                pin_memory=True,
-                drop_last=False,
-            )
-
         for epoch_idx in range(0, self.max_epochs):
+            print(f"Started epoch {epoch_idx}")
             model.train()
             optimizer.zero_grad()
 
             for batch_idx, (batch_X, batch_y, batch_padding_masks) in enumerate(
-                gpuLoader
+                train_dl
             ):
                 outputs = model.forward(
                     batch_X.to("cuda"), batch_padding_masks.to("cuda")
                 )
-                loss = criterion(outputs, torch.unsqueeze(batch_y, 1).to("cuda"))
+                loss = criterion(outputs, batch_y.to("cuda"))
                 loss.backward()
                 # TODO: what's the significance of this?
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=4.0)
@@ -241,24 +219,31 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
 
             # Do early stopping
             if use_es:
-                model.eval()
-                y_pred = torch.Tensor().to("cuda")
-                y_actual = torch.Tensor().to("cuda")
+                with torch.no_grad():
+                    model.eval()
+                    y_pred = torch.Tensor().to("cpu")
+                    y_actual = torch.Tensor().to("cpu")
 
-                for bXv, byv, pmv in validGpuLoader:
-                    this_y_pred = model(bXv.to("cuda"), pmv.to("cuda"))
-                    y_pred = torch.cat((y_pred, this_y_pred))
-                    y_actual = torch.cat((y_actual, byv.to("cuda")))
+                    for bXv, byv, pmv in valid_dl:
+                        this_y_pred = model(bXv.to("cuda"), pmv.to("cuda"))
 
-                validation_loss = log_loss(
-                    y_actual.detach().to("cpu"), y_pred.detach().to("cpu")
-                )
+                        # TODO: are the del's really necessary?
+                        del bXv
+                        del pmv
 
-                es(validation_loss, model.state_dict())
+                        y_pred = torch.cat((y_pred, this_y_pred.to("cpu")))
+                        y_actual = torch.cat((y_actual, byv))
 
-                if es.early_stop:
-                    print(f"Stopped training @ epoch {epoch_idx}")
-                    break
+                        del byv
+                        del this_y_pred
+
+                    validation_loss = log_loss(y_actual, y_pred)
+
+                    es(validation_loss, model.state_dict())
+
+                    if es.early_stop:
+                        print(f"Stopped training @ epoch {epoch_idx}")
+                        break
 
         if es.saved_best_weights:
             model.load_state_dict(es.saved_best_weights)
@@ -268,12 +253,11 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
         return self
 
     # This seems to be the function used by scikit cv_loop, which is all we really care about right now
-    def decision_function(self, X):
+    def decision_function(self, X, pm):
         with torch.no_grad():
             # TODO: assuming validation set small enough to fit into gpu mem w/out batching?
             # Also, can the TST model handle a new shape?
-            X_unpacked, padding_masks = TstWrapper._unwrap_X_padmask(X)
-            y_pred = self.model(X_unpacked.to("cuda"), padding_masks.to("cuda"))
+            y_pred = self.model(X.to("cuda"), pm.to("cuda"))
 
             # send model to cpu at end so that it's not taking up GPU space
             print("[*] Fold done, sending model to CPU")
@@ -281,24 +265,23 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
 
             return torch.squeeze(y_pred).to("cpu")  # sklearn needs to do cpu ops
 
-    def predict(self, X):
-        return self.decision_function(X)
-
 
 def load_to_mem(dl: torch.utils.data.DataLoader):
     """
     Necessary for scikit models to have everything in memory
     """
     print("[*] Loading all data from disk")
-    X_all, y_all = [torch.tensor([])] * 2
-    for X, y in dl:
+    X_all, y_all, pm_all = [torch.tensor([])] * 3
+    for X, y, pm in dl:
         X_all = torch.cat((X_all, X), dim=0)
         y_all = torch.cat((y_all, y), dim=0)
+        pm_all = torch.cat((pm_all, pm), dim=0)
 
     print("[+] Data loading complete:")
     print(f"\tX shape: {X_all.shape}")
     print(f"\ty shape: {y_all.shape}")
-    return X_all, torch.squeeze(y_all)
+    print(f"\tpm shape: {pm_all.shape}")
+    return X_all, torch.squeeze(y_all), pm_all.bool()
 
 
 def doCV(clf, n_jobs=-1):
@@ -307,7 +290,10 @@ def doCV(clf, n_jobs=-1):
 
     ds = FileBasedDataset(processed_mimic_path="./mimicts", cut_sample=cut_sample)
     dl = torch.utils.data.DataLoader(
-        ds, batch_size=256, num_workers=CORES_AVAILABLE, pin_memory=True,
+        ds,
+        batch_size=256,
+        num_workers=CORES_AVAILABLE,
+        pin_memory=True,
     )
 
     X, y = load_to_mem(dl)

@@ -3,6 +3,7 @@ Apply inclusion criteria to generate a list of included stay ids
 """
 import pandas as pd
 import dask.dataframe as dd
+import datetime
 
 
 class InclusionCriteria:
@@ -77,11 +78,21 @@ class InclusionCriteria:
             self.all_stays["hadm_id"].isin(over_18_admissions["hadm_id"])
         ]
 
+    def _exclude_long_stays(self, time_hours=(24 * 30)):
+        self.all_stays = self.all_stays[
+            self.all_stays.apply(
+                lambda row: (row["outtime"] - row["intime"])
+                < datetime.timedelta(hours=time_hours),
+                axis=1,
+            )
+        ]
+
     def get_included(self):
         order = [
             self._exclude_nodata,
             self._exclude_double_stays,
             self._exclude_under_18,
+            self._exclude_long_stays,
         ]
 
         for func in order:
