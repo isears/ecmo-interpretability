@@ -16,6 +16,7 @@ from ecmointerp.modeling.tstImpl import TSTransformerEncoderClassiregressor, Ada
 from sklearn.linear_model import LogisticRegression
 import os
 from sklearn.metrics import roc_auc_score, log_loss, roc_curve, make_scorer
+import json
 
 
 CORES_AVAILABLE = len(os.sched_getaffinity(0))
@@ -164,6 +165,9 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
         self.n_heads = n_heads
         self.num_classes = num_classes
         self.num_layers = num_layers
+
+        with open("cache/metadata.json", "r") as f:
+            self.max_len = int(json.load(f)["max_len"])
 
     @staticmethod
     def _unwrap_X_padmask(X_packaged):
