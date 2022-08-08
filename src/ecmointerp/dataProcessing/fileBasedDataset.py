@@ -5,6 +5,7 @@ import numpy as np
 from torch.nn.functional import pad
 from typing import List
 import json
+from ecmointerp import config
 
 
 def get_feature_labels():
@@ -139,7 +140,7 @@ if __name__ == "__main__":
 
     dl = torch.utils.data.DataLoader(
         ds,
-        num_workers=16,
+        num_workers=config.cores_available,
         batch_size=4,
         pin_memory=True,
     )

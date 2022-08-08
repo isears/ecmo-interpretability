@@ -21,9 +21,6 @@ torch.use_deterministic_algorithms(True)
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 
-CORES_AVAILABLE = len(os.sched_getaffinity(0))
-
-
 class TensorBasedDataset(torch.utils.data.Dataset):
     def __init__(self, X, y) -> None:
         self.X = X
@@ -58,7 +55,10 @@ if __name__ == "__main__":
     ).to(device)
 
     model.load_state_dict(
-        torch.load(f"{config.model_path}/model.pt", map_location=torch.device(device),)
+        torch.load(
+            f"{config.model_path}/model.pt",
+            map_location=torch.device(device),
+        )
     )
 
     model.eval()
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     dl = torch.utils.data.DataLoader(
         TensorBasedDataset(X_combined, y_combined),
         batch_size=32,
-        num_workers=CORES_AVAILABLE,
+        num_workers=config.cores_available,
         pin_memory=True,
         drop_last=False,
     )
@@ -97,12 +97,12 @@ if __name__ == "__main__":
             )
             attributions_list.append(attributions.cpu())
 
-            before_mem = torch.cuda.memory_allocated(device) / 2 ** 30
+            before_mem = torch.cuda.memory_allocated(device) / 2**30
             del attributions
             del pad_masks
             del xbatch
             torch.cuda.empty_cache()
-            after_mem = torch.cuda.memory_allocated(device) / 2 ** 30
+            after_mem = torch.cuda.memory_allocated(device) / 2**30
 
             print(
                 f"batch # {batch_idx} purged memory {before_mem:.4f} -> {after_mem:.4f}"

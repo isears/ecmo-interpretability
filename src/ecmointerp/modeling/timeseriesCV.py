@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.stats as st
 from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset
 from ecmointerp.modeling import EarlyStopping
+from ecmointerp import config
 from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -19,7 +20,6 @@ from sklearn.metrics import roc_auc_score, log_loss, roc_curve, make_scorer
 import json
 
 
-CORES_AVAILABLE = len(os.sched_getaffinity(0))
 torch.manual_seed(42)
 np.random.seed(42)
 torch.use_deterministic_algorithms(True)
@@ -295,7 +295,7 @@ def doCV(clf, n_jobs=-1):
     dl = torch.utils.data.DataLoader(
         ds,
         batch_size=256,
-        num_workers=CORES_AVAILABLE,
+        num_workers=config.cores_available,
         pin_memory=True,
     )
 

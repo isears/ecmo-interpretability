@@ -8,10 +8,9 @@ from sklearn.metrics import roc_auc_score
 from ecmointerp.modeling.timeseriesCV import TstWrapper, load_to_mem
 import pandas as pd
 from ecmointerp.dataProcessing.fileBasedDataset import FileBasedDataset
+from ecmointerp import config
 import os
 import datetime
-
-CORES_AVAILABLE = len(os.sched_getaffinity(0))
 
 
 if __name__ == "__main__":
@@ -24,7 +23,7 @@ if __name__ == "__main__":
     train_dl = torch.utils.data.DataLoader(
         train_ds,
         batch_size=tst.batch_size,
-        num_workers=CORES_AVAILABLE,
+        num_workers=config.cores_available,
         pin_memory=True,
     )
 
@@ -32,7 +31,7 @@ if __name__ == "__main__":
     test_dl = torch.utils.data.DataLoader(
         test_ds,
         batch_size=tst.batch_size,
-        num_workers=CORES_AVAILABLE,
+        num_workers=config.cores_available,
         pin_memory=True,
     )
 

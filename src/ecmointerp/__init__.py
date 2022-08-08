@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 
 
 @dataclass
@@ -9,6 +10,7 @@ class Config:
     prediction_timesteps: int
     # Path to TST model to use in results generation
     model_path: str
+    cores_available: int
 
 
 with open("mimicts/readme.txt", "r") as f:
@@ -23,4 +25,5 @@ config = Config(
     timestep_seconds=timestep_seconds,
     prediction_timesteps=1,
     model_path="/gpfs/home/isears1/Repos/tabnet-sepsis/cache/models/singleTst_2022-07-29_14:10:48",
+    cores_available=len(os.sched_getaffinity(0)),
 )
