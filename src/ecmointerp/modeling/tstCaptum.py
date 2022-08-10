@@ -22,18 +22,22 @@ os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 
 class TensorBasedDataset(torch.utils.data.Dataset):
-    def __init__(self, X, y) -> None:
+    def __init__(self, X, y, pm=None) -> None:
         self.X = X
         self.y = y
+        self.pm = pm
 
     def __len__(self):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return (
-            self.X[idx],
-            self.y[idx],
-        )
+        if self.pm is not None:
+            return self.X[idx], self.y[idx], self.pm[idx]
+        else:
+            return (
+                self.X[idx],
+                self.y[idx],
+            )
 
 
 if __name__ == "__main__":
@@ -48,7 +52,7 @@ if __name__ == "__main__":
         feat_dim=621,
         d_model=128,
         dim_feedforward=256,
-        max_len=120,
+        max_len=354,
         n_heads=16,
         num_classes=1,
         num_layers=3,
@@ -56,24 +60,20 @@ if __name__ == "__main__":
 
     model.load_state_dict(
         torch.load(
-            f"{config.model_path}/model.pt",
+            f"{config.transfer_model_path}/model.pt",
             map_location=torch.device(device),
         )
     )
 
     model.eval()
 
-    X_test = torch.load(f"{config.model_path}/X_test.pt")
-    y_test = torch.load(f"{config.model_path}/y_test.pt")
-    X_train = torch.load(f"{config.model_path}/X_train.pt")
-    y_train = torch.load(f"{config.model_path}/y_train.pt")
-
-    X_combined = torch.cat((X_test, X_train), 0)
-    y_combined = torch.cat((y_test, y_train), 0)
+    X_combined = torch.load(f"{config.transfer_model_path}/X.pt")
+    y_combined = torch.load(f"{config.transfer_model_path}/y.pt")
+    pad_masks = torch.load(f"{config.transfer_model_path}/pad_masks.pt")
 
     dl = torch.utils.data.DataLoader(
-        TensorBasedDataset(X_combined, y_combined),
-        batch_size=32,
+        TensorBasedDataset(X_combined, y_combined, pad_masks),
+        batch_size=4,
         num_workers=config.cores_available,
         pin_memory=True,
         drop_last=False,
@@ -82,13 +82,10 @@ if __name__ == "__main__":
     attributions_list = list()
     pad_mask_list = list()
 
-    for batch_idx, (xbatch, _) in enumerate(dl):
+    for batch_idx, (xbatch, _, pad_masks) in enumerate(dl):
         with torch.no_grad():  # Computing gradients kills memory
             xbatch = xbatch.to(device)
-
-            pad_masks = xbatch[:, :, -1] == 1
-            xbatch = xbatch[:, :, :-1]
-
+            pad_masks = pad_masks.to(device)
             xbatch.requires_grad = True
 
             ig = IntegratedGradients(model)
@@ -109,5 +106,5 @@ if __name__ == "__main__":
             )
 
     attributions_all = torch.concat(attributions_list, dim=0)
-    print(f"Saving attributions to {config.model_path}/attributions.pt")
-    torch.save(attributions_all, f"{config.model_path}/attributions.pt")
+    print(f"Saving attributions to {config.transfer_model_path}/attributions.pt")
+    torch.save(attributions_all, f"{config.transfer_model_path}/attributions.pt")

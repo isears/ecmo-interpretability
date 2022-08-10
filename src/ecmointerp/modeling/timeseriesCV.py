@@ -179,21 +179,22 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
 
         return X, padding_masks
 
-    def train(self, train_dl, use_es=False, valid_dl=None):
+    def train(self, train_dl, use_es=False, valid_dl=None, model=None):
         if use_es:
             assert valid_dl is not None
 
         n_features = len(pd.read_csv("cache/included_features.csv"))
 
-        model = TSTransformerEncoderClassiregressor(
-            feat_dim=n_features,
-            d_model=self.d_model,
-            dim_feedforward=self.dim_feedforward,
-            max_len=self.max_len,
-            n_heads=self.n_heads,
-            num_classes=self.num_classes,
-            num_layers=self.num_layers,
-        ).to("cuda")
+        if not model:
+            model = TSTransformerEncoderClassiregressor(
+                feat_dim=n_features,
+                d_model=self.d_model,
+                dim_feedforward=self.dim_feedforward,
+                max_len=self.max_len,
+                n_heads=self.n_heads,
+                num_classes=self.num_classes,
+                num_layers=self.num_layers,
+            ).to("cuda")
 
         optimizer = self.optimizer_cls(model.parameters())
         criterion = torch.nn.BCELoss()
@@ -201,7 +202,7 @@ class TstWrapper(BaseEstimator, ClassifierMixin):
         # One "fair" early stopping for comparison w/LR
         # One "optimistic" early stopping for single fold model building
         # Current impl is optimistic but does not run under CV
-        es = EarlyStopping(patience=5)
+        es = EarlyStopping()
 
         for epoch_idx in range(0, self.max_epochs):
             print(f"Started epoch {epoch_idx}")

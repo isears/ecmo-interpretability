@@ -9,7 +9,7 @@
 
 
 export PYTHONUNBUFFERED=TRUE
-source /gpfs/home/isears1/anaconda3/bin/activate /users/isears1/anaconda/lsepsis
+source /gpfs/home/isears1/anaconda3/bin/activate /users/isears1/anaconda3/envs/ecmo-interpretability
 
 echo "Establishing connection back to $SLURM_SUBMIT_HOST:51277"
 python3 -m debugpy --connect $SLURM_SUBMIT_HOST:51277 --wait-for-client $1

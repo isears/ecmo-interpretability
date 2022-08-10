@@ -40,17 +40,35 @@ if __name__ == "__main__":
 
     save_path = f"cache/models/singleTst_{start_time_str}"
     print(f"[+] Training complete, saving to {save_path}")
-    X, y, pm = load_to_mem(test_dl)
-    preds = tst.decision_function(X, pm)
-    score = roc_auc_score(y, preds)
-    print(f"Validation score: {score}")
-
     os.mkdir(save_path)
     torch.save(tst.model.state_dict(), f"{save_path}/model.pt")
+
+    preds = list()
+    actuals = list()
+    X_all = list()
+    pm_all = list()
+    for X, y, pm in test_dl:
+        tst.model.to("cuda")
+        preds.append(tst.decision_function(X.to("cuda"), pm.to("cuda")))
+        actuals.append(y)
+        X_all.append(X.to("cpu"))
+        pm_all.append(pm.to("cpu"))
+
+    preds = torch.cat(preds, dim=0)
+    actuals = torch.cat(actuals, dim=0)
+    X_all = torch.cat(X_all, dim=0)
+    pm_all = torch.cat(pm_all, dim=0)
+
+    score = roc_auc_score(actuals, preds)
+    print(f"Validation score: {score}")
+
     pd.Series(name="stay_id", data=train_sids).to_csv(f"{save_path}/train_sids.csv")
     pd.Series(name="stay_id", data=test_sids).to_csv(f"{save_path}/test_sids.csv")
 
     torch.save(preds, f"{save_path}/preds.pt")
+    torch.save(actuals, f"{save_path}/y.pt")
+    torch.save(X_all, f"{save_path}/X.pt")
+    torch.save(pm_all, f"{save_path}/pad_masks.pt")
 
     with open(f"{save_path}/roc_auc_score.txt", "w") as f:
         f.write(str(score))

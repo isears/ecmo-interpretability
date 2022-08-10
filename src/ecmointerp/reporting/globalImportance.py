@@ -116,15 +116,13 @@ def max_median_importances(att):
 
 
 if __name__ == "__main__":
+    transfer_path = "cache/models/transferTst_2022-08-08_20:07:52"
 
-    attributions = torch.load(f"{config.model_path}/attributions.pt").detach()
-    X_test = torch.load(f"{config.model_path}/X_test.pt")
-    X_train = torch.load(f"{config.model_path}/X_train.pt")
-    X_combined = torch.cat((X_test, X_train), 0).detach()
+    attributions = torch.load(f"{config.transfer_model_path}/attributions.pt").detach()
+    X_combined = torch.load(f"{config.transfer_model_path}/X.pt").detach()
+    pad_masks = torch.load(f"{config.transfer_model_path}/pad_masks.pt")
 
     print("Loaded data")
-
-    pad_masks = X_combined[:, :, -1]
 
     titles = ["all", "early", "late"]
 

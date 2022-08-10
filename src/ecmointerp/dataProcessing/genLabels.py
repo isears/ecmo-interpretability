@@ -103,6 +103,7 @@ def do_agg(stay_ids):
 
 if __name__ == "__main__":
     stay_ids = pd.read_csv("cache/included_stayids.csv").squeeze("columns").to_list()
+    stay_ids += pd.read_csv("cache/ecmo_stayids.csv").squeeze("columns").to_list()
 
     labels_df = do_agg(stay_ids)
 
