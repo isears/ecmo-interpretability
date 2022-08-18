@@ -47,6 +47,8 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
+    model_dir = "cache/models/singleTst_2022-08-09_21:32:24"
+
     # TODO: sync these params up with trainer
     model = TSTransformerEncoderClassiregressor(
         feat_dim=621,
@@ -60,16 +62,16 @@ if __name__ == "__main__":
 
     model.load_state_dict(
         torch.load(
-            f"{config.transfer_model_path}/model.pt",
+            f"{model_dir}/model.pt",
             map_location=torch.device(device),
         )
     )
 
     model.eval()
 
-    X_combined = torch.load(f"{config.transfer_model_path}/X.pt")
-    y_combined = torch.load(f"{config.transfer_model_path}/y.pt")
-    pad_masks = torch.load(f"{config.transfer_model_path}/pad_masks.pt")
+    X_combined = torch.load(f"{model_dir}/X.pt")
+    y_combined = torch.load(f"{model_dir}/y.pt")
+    pad_masks = torch.load(f"{model_dir}/pad_masks.pt")
 
     dl = torch.utils.data.DataLoader(
         TensorBasedDataset(X_combined, y_combined, pad_masks),
@@ -106,5 +108,5 @@ if __name__ == "__main__":
             )
 
     attributions_all = torch.concat(attributions_list, dim=0)
-    print(f"Saving attributions to {config.transfer_model_path}/attributions.pt")
-    torch.save(attributions_all, f"{config.transfer_model_path}/attributions.pt")
+    print(f"Saving attributions to {model_dir}/attributions.pt")
+    torch.save(attributions_all, f"{model_dir}/attributions.pt")

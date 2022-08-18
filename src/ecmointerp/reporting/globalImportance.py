@@ -62,11 +62,15 @@ def summative_importances(att):
     )
 
     topn = importances.nlargest(20, columns="total_importance")
-    topn = topn.drop(columns="total_importance")
+    # topn = topn.drop(columns="total_importance")
 
-    topn = pd.melt(topn, id_vars="Feature", var_name="Parity")
-    ax = sns.barplot(x="Feature", y="value", data=topn, hue="Parity")
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")
+    # topn = pd.melt(topn, id_vars="Feature", var_name="Parity")
+    # ax = sns.barplot(x="Feature", y="value", data=topn, hue="Parity")
+    # ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")
+    sns.set_theme()
+    ax = sns.barplot(
+        x="total_importance", y="Feature", data=topn, orient="h", color="b"
+    )
     ax.set_title(f"Global Feature Importance ({title})")
     plt.tight_layout()
     plt.savefig(f"results/{title}_importances.png")
@@ -75,59 +79,20 @@ def summative_importances(att):
     return topn
 
 
-def max_median_importances(att):
-    """
-    Aggregate importances by finding max value in every time series, than averaging over all time series
-    """
-
-    max_attributions = torch.amax(att, dim=1)
-    min_attributions = torch.amin(att, dim=1)
-    min_mask = (
-        torch.max(torch.abs(max_attributions), torch.abs(min_attributions))
-        > max_attributions
-    )
-    max_mask = torch.logical_not(min_mask)
-
-    assert (max_mask.int() + min_mask.int() == 1).all()
-
-    max_absolute_attributions = (
-        max_attributions * max_mask.int() + min_attributions * min_mask.int()
-    )
-
-    max_absolute_attributions_avg = torch.median(
-        max_absolute_attributions, dim=0
-    ).values
-    importances = pd.DataFrame(
-        data={
-            "Feature": get_feature_labels(),
-            "Median Max Absolute Attribution": max_absolute_attributions_avg.to("cpu")
-            .detach()
-            .numpy(),
-        }
-    )
-
-    # Just temporary for topn calculation
-    importances["abs"] = importances["Median Max Absolute Attribution"].apply(np.abs)
-
-    topn = importances.nlargest(20, columns="abs")
-    topn = topn.drop(columns="abs")
-
-    return topn
-
-
 if __name__ == "__main__":
-    transfer_path = "cache/models/transferTst_2022-08-08_20:07:52"
+    # model_dir = "cache/models/singleTst_2022-08-09_21:32:24"
+    # title = "base"
 
-    attributions = torch.load(f"{config.transfer_model_path}/attributions.pt").detach()
-    X_combined = torch.load(f"{config.transfer_model_path}/X.pt").detach()
-    pad_masks = torch.load(f"{config.transfer_model_path}/pad_masks.pt")
+    model_dir = "cache/models/transferTst_2022-08-08_20:16:30"
+    title = "ecmo"
+
+    attributions = torch.load(f"{model_dir}/attributions.pt").detach()
+    X_combined = torch.load(f"{model_dir}/X.pt").detach()
+    pad_masks = torch.load(f"{model_dir}/pad_masks.pt")
 
     print("Loaded data")
 
-    titles = ["all", "early", "late"]
+    att = np.multiply(attributions, np.expand_dims(pad_masks, axis=-1))
+    topn = summative_importances(att)
 
-    for revised_pad, title in zip(revise_pad(pad_masks), titles):
-        att = np.multiply(attributions, np.expand_dims(revised_pad, axis=-1))
-        topn = summative_importances(att)
-
-        print(topn)
+    print(topn)
