@@ -154,62 +154,28 @@ class Table1Generator(object):
         )
 
     def _tablegen_comorbidities(self) -> None:
-        @dataclass
-        class icd_comorbidity:
-            name: str
-            codes: List[str]
-            points: int
+        cci = pd.read_csv("mimiciv/derived/cci.csv")
+        # cci = cci[cci["hadm_id"].isin(self.all_df["hadm_id"])]
 
-            def __eq__(self, __o: object) -> bool:
-                return self.name == __o.name and self.__class__ == __o.__class__
-
-        cci = dict()
-        with open("src/ecmointerp/reporting/cci.json", "r") as f:
-            cci = json.load(f)
-
+        merged_df = pd.merge(
+            self.all_df[["hadm_id", "stay_id"]], cci, how="left", on="hadm_id"
+        )
         comorbidities = [
-            icd_comorbidity(
-                name=key,
-                # Basically, treat all codes as startswith codes
-                codes=val["Match Codes"] + val["Startswith Codes"],
-                points=int(val["Points"]),
-            )
-            for key, val in cci.items()
+            c
+            for c in cci.columns
+            if c
+            not in ["subject_id", "hadm_id", "age_score", "charlson_comorbidity_index"]
         ]
 
-        def relevant_comorbidities(icd_code_list):
-            ret = list()
-            for c in comorbidities:
-                for code in icd_code_list:
-                    if len(list(filter(code.startswith, c.codes))) != 0:
-                        ret.append(c)
-
-            return ret
-
-        self.all_df["comorbidities"] = self.all_df["icd_code"].apply(
-            relevant_comorbidities
-        )
-
         for c in comorbidities:
-            comorbidity_count = len(
-                self.all_df[
-                    self.all_df["comorbidities"].apply(
-                        lambda comorbidity_list: c in comorbidity_list
-                    )
-                ].index
-            )
-
+            c_count = len(merged_df[merged_df[c] > 0])
             self._add_table_row(
-                f"[comorbidity] {c.name}", self._pprint_percent(comorbidity_count)
+                item=f"[COMORBIDITY] {c}", value=self._pprint_percent(c_count)
             )
-
-        self.all_df["cci_score"] = self.all_df["comorbidities"].apply(
-            lambda comorbidity_list: sum(c.points for c in comorbidity_list)
-        )
 
         self._add_table_row(
-            item="[comorbidity] Average CCI",
-            value=self._pprint_mean(self.all_df["cci_score"]),
+            item="Avg. CCI",
+            value=self._pprint_mean(merged_df["charlson_comorbidity_index"]),
         )
 
     def _tablegen_bmi(self) -> None:
