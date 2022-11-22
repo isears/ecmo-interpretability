@@ -238,6 +238,87 @@ class Table1Generator(object):
             value=self._pprint_percent(len(self.all_df[self.all_df["bmi"].isna()])),
         )
 
+    def _tablegen_interventions(self) -> None:
+        # Vasopressors: norepinephrine, phenylephrine, epinephrine, vasopressin
+        norepi_sids = pd.read_csv("mimiciv/derived/norepinephrine.csv")[
+            "stay_id"
+        ].drop_duplicates()
+        phenylephrine_sids = pd.read_csv("mimiciv/derived/phenylephrine.csv")[
+            "stay_id"
+        ].drop_duplicates()
+        epinephrine_sids = pd.read_csv("mimiciv/derived/epinephrine.csv")[
+            "stay_id"
+        ].drop_duplicates()
+        vasopressin_sids = pd.read_csv("mimiciv/derived/vasopressin.csv")[
+            "stay_id"
+        ].drop_duplicates()
+
+        pressors = pd.concat(
+            [norepi_sids, phenylephrine_sids, epinephrine_sids, vasopressin_sids],
+            ignore_index=True,
+        ).drop_duplicates()
+
+        pressors_subset = [
+            sid for sid in self.all_df["stay_id"].to_list() if sid in pressors.to_list()
+        ]
+
+        self._add_table_row(
+            item="Vasopressors", value=self._pprint_percent(len(pressors_subset))
+        )
+
+        # Inotropes: epinephrine, dopamine, dobutamine, milrinone
+        dopamine_sids = pd.read_csv("mimiciv/derived/dopamine.csv")[
+            "stay_id"
+        ].drop_duplicates()
+        dobutamine_sids = pd.read_csv("mimiciv/derived/dobutamine.csv")[
+            "stay_id"
+        ].drop_duplicates()
+        milrinone_sids = pd.read_csv("mimiciv/derived/milrinone.csv")[
+            "stay_id"
+        ].drop_duplicates()
+
+        inotropes = pd.concat(
+            [epinephrine_sids, dobutamine_sids, dopamine_sids, milrinone_sids],
+            ignore_index=True,
+        ).drop_duplicates()
+
+        inotropes_subset = [
+            sid
+            for sid in self.all_df["stay_id"].to_list()
+            if sid in inotropes.to_list()
+        ]
+
+        self._add_table_row(
+            item="Inotropes", value=self._pprint_percent(len(inotropes_subset))
+        )
+
+        # Paralysis
+        paralysis_sids = pd.read_csv("mimiciv/derived/neuroblock.csv")[
+            "stay_id"
+        ].drop_duplicates()
+
+        paralysis_subset = [
+            sid
+            for sid in self.all_df["stay_id"].to_list()
+            if sid in paralysis_sids.to_list()
+        ]
+
+        self._add_table_row(
+            item="Paralysis", value=self._pprint_percent(len(paralysis_subset))
+        )
+
+        # Renal replacement therapy
+        rrt_sids = pd.read_csv("mimiciv/derived/rrt.csv")["stay_id"].drop_duplicates()
+
+        rrt_subset = [
+            sid for sid in self.all_df["stay_id"].to_list() if sid in rrt_sids.to_list()
+        ]
+
+        self._add_table_row(
+            item="Renal Replacement Therapy",
+            value=self._pprint_percent(len(rrt_subset)),
+        )
+
     def populate(self) -> pd.DataFrame:
         tablegen_methods = [m for m in dir(self) if m.startswith("_tablegen")]
 
