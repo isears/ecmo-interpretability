@@ -286,32 +286,75 @@ class Table1Generator(object):
         )
 
     def _tablegen_icds(self) -> None:
-        # Intra-aortic balloon pump
-        iabp_codes = set(
-            [
-                "0470041",
-                "04700D1",
-                "04700Z1",
-                "0470341",
-                "04703D1",
-                "04703Z1",
-                "0470441",
-                "04704D1",
-                "04704Z1",
-            ]
+        diagnoses_icd = pd.read_csv("mimiciv/hosp/diagnoses_icd.csv")
+        codes_of_interest = {
+            "Intra-aortic Balloon Pump": set(
+                [
+                    "0470041",
+                    "04700D1",
+                    "04700Z1",
+                    "0470341",
+                    "04703D1",
+                    "04703Z1",
+                    "0470441",
+                    "04704D1",
+                    "04704Z1",
+                ]
+            ),
+            "Impella": set(["5A0221D"]),
+            "Ventricular Assist": set(["Z95811"]),
+        }
+
+        def get_codes_that_start_with(s: str):
+            return diagnoses_icd[diagnoses_icd["icd_code"].str.startswith(s)][
+                "icd_code"
+            ].to_list()
+
+        ic_hemorrhage = ["431"]
+        ic_hemorrhage += get_codes_that_start_with("I61")
+        codes_of_interest["Intracerebral Hemorrhage"] = set(ic_hemorrhage)
+
+        codes_of_interest["GI Hemorrhage"] = set(
+            ["578", "5780", "5781", "5789", "K922"]
         )
 
-        # Impella
-        impella_codes = set(["5A0221D"])
+        codes_of_interest["Cannulation Site Hemorrhage"] = set(["99674", "T82838A"])
 
-        # Ventricular assist
-        va_codes = set(["Z95811"])
+        codes_of_interest["Surgical Site Hemorrhage"] = set(["L7622", "99811"])
 
-        for name, code_set in {
-            "Intra-aortic Balloon Pump": iabp_codes,
-            "Impella": impella_codes,
-            "Ventricular Assist": va_codes,
-        }.items():
+        codes_of_interest["Pulmonary Hemorrhage"] = set(["R0489", "78639"])
+
+        codes_of_interest["Nonspecific Hemorrhage"] = set(
+            ["99811", "I97418", "I9742", "I97618", "I9762"]
+        )
+
+        codes_of_interest["Epistaxis"] = set(["R040", "7847"])
+
+        dvt = ["45340"]
+        dvt += get_codes_that_start_with("I8240")
+        codes_of_interest["DVT"] = set(dvt)
+
+        pe = get_codes_that_start_with("I26")
+        pe += get_codes_that_start_with("4151")
+        codes_of_interest["Pulmonary Embolism"] = set(pe)
+
+        codes_of_interest["Oxygenator thrombosis"] = set(["T82867A", "99672"])
+
+        codes_of_interest["Limb ischemia"] = set(get_codes_that_start_with("M622"))
+
+        unspec_thromb = ["4449"]
+        unspec_thromb += get_codes_that_start_with("I74")
+        codes_of_interest["Unspecified Thrombosis"] = set(unspec_thromb)
+
+        codes_of_interest["Cerebral Infarction"] = set(["43491", "I6350"])
+
+        codes_of_interest["Seizure"] = set(["R569", "78039"])
+
+        codes_of_interest["Brain Death"] = set(["34882", "G9382"])
+
+        codes_of_interest["Cardiac Arrest"] = set(["I469", "34882"])
+
+        for name, code_set in codes_of_interest.items():
             count = len(
                 self.all_df[
                     self.all_df.apply(
@@ -349,6 +392,17 @@ class Table1Generator(object):
             value=self._pprint_mean(summed_durations),
         )
 
+    def _tablegen_los(self) -> None:
+        icu_los = self.all_df["outtime"] - self.all_df["intime"]
+        icu_los = icu_los.apply(lambda x: x.total_seconds() / (60 * 60 * 24))
+        self._add_table_row(item="ICU LOS (days)", value=self._pprint_mean(icu_los))
+
+        hosp_los = self.all_df["dischtime"] - self.all_df["admittime"]
+        hosp_los = hosp_los.apply(lambda x: x.total_seconds() / (60 * 60 * 24))
+        self._add_table_row(
+            item="Hospital LOS (days)", value=self._pprint_mean(hosp_los)
+        )
+
     def populate(self) -> pd.DataFrame:
         tablegen_methods = [m for m in dir(self) if m.startswith("_tablegen")]
 
@@ -361,12 +415,16 @@ class Table1Generator(object):
 
 
 if __name__ == "__main__":
-    # sids = pd.read_csv("cache/included_stayids.csv").squeeze("columns")
+    # sids = pd.read_csv("cache/included_stayids.csv")
     sids = pd.read_csv("cache/ecmo_stayids.csv")
     print(f"Total n: {len(sids)}")
     t1generator = Table1Generator(sids["stay_id"].to_list())
     t1 = t1generator.populate()
 
-    print(t1)
+    with pd.option_context(
+        "display.max_rows",
+        None,
+    ):
+        print(t1)
 
     t1.to_csv("results/table1.csv", index=False)

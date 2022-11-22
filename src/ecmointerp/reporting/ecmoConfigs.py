@@ -3,6 +3,7 @@ Determine ECMO circuit properties for patients with evidence of ECMO treatment
 """
 import dask.dataframe as dd
 import pandas as pd
+import datetime
 from ecmointerp.dataProcessing.util import all_inclusive_dtypes
 
 
@@ -94,3 +95,28 @@ if __name__ == "__main__":
 
     print(f"{avg:.2f} ({median:.2f} +/- {std:.2f}")
 
+    # ECMO mortality
+    # Defined as death within 12 hrs of ecmo flow event
+    icustays = pd.read_csv("mimiciv/icu/icustays.csv")
+    combined = icustays.merge(
+        pd.read_csv("mimiciv/core/admissions.csv"),
+        how="left",
+        on=["hadm_id", "subject_id"],
+    )
+
+    for tc in ["deathtime", "admittime", "dischtime"]:
+        combined[tc] = pd.to_datetime(combined[tc])
+
+    combined = combined[combined["stay_id"].isin(ecmo_sids)]
+    combined = combined.merge(
+        ecmo_times, how="left", left_on="stay_id", right_index=True
+    )
+
+    combined["died_on_ecmo"] = (
+        combined["deathtime"] - combined["ecmo_end"]
+    ) > datetime.timedelta(hours=6)
+    died_on_ecmo_count = len(combined[combined["died_on_ecmo"]])
+    print(f"Died on ECMO:")
+    print(f"{died_on_ecmo_count} ({100 * died_on_ecmo_count / len(ecmo_sids):.2f}")
+
+    print("Done")
