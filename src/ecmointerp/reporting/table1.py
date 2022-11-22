@@ -315,13 +315,39 @@ class Table1Generator(object):
             count = len(
                 self.all_df[
                     self.all_df.apply(
-                        lambda row: len(set(row["icd_code"]).intersection(code_set)) > 0,
+                        lambda row: len(set(row["icd_code"]).intersection(code_set))
+                        > 0,
                         axis=1,
                     )
                 ]
             )
 
             self._add_table_row(item=name, value=self._pprint_percent(count))
+
+    def _tablegen_mechvent(self) -> None:
+        vent_df = pd.read_csv("mimiciv/derived/ventilation.csv")
+        # Only mechanical
+        vent_df = vent_df[
+            vent_df["ventilation_status"].isin(["InvasiveVent", "Tracheostomy"])
+        ]
+
+        vent_df = vent_df[vent_df["stay_id"].isin(self.stay_ids)]
+
+        for tc in ["starttime", "endtime"]:
+            vent_df[tc] = pd.to_datetime(vent_df[tc])
+
+        def get_duration(row):
+            diff_seconds = (row["endtime"] - row["starttime"]).total_seconds()
+            return diff_seconds / (60 * 60 * 24)
+
+        vent_df["duration_days"] = vent_df.apply(get_duration, axis=1)
+
+        summed_durations = vent_df.groupby("stay_id")["duration_days"].sum()
+
+        self._add_table_row(
+            item="Mean Ventilation length (days)",
+            value=self._pprint_mean(summed_durations),
+        )
 
     def populate(self) -> pd.DataFrame:
         tablegen_methods = [m for m in dir(self) if m.startswith("_tablegen")]
