@@ -212,6 +212,32 @@ class Table1Generator(object):
             value=self._pprint_mean(self.all_df["cci_score"]),
         )
 
+    def _tablegen_bmi(self) -> None:
+        self.all_df = self.all_df.merge(
+            pd.read_csv("mimiciv/derived/first_day_height.csv"),
+            how="left",
+            on=["stay_id", "subject_id"],
+        )
+
+        self.all_df = self.all_df.merge(
+            pd.read_csv("mimiciv/derived/first_day_weight.csv"),
+            how="left",
+            on=["stay_id", "subject_id"],
+        )
+
+        self.all_df["bmi"] = (
+            self.all_df["weight_admit"] / (self.all_df["height"] / 100) ** 2
+        )
+
+        self._add_table_row(
+            item="BMI (kg / m2)", value=self._pprint_mean(self.all_df["bmi"].dropna())
+        )
+
+        self._add_table_row(
+            item="BMI Missing",
+            value=self._pprint_percent(len(self.all_df[self.all_df["bmi"].isna()])),
+        )
+
     def populate(self) -> pd.DataFrame:
         tablegen_methods = [m for m in dir(self) if m.startswith("_tablegen")]
 
@@ -224,8 +250,10 @@ class Table1Generator(object):
 
 
 if __name__ == "__main__":
-    sids = pd.read_csv("cache/included_stayids.csv").squeeze("columns")
-    t1generator = Table1Generator(sids.to_list())
+    # sids = pd.read_csv("cache/included_stayids.csv").squeeze("columns")
+    sids = pd.read_csv("cache/ecmo_stayids.csv")
+    print(f"Total n: {len(sids)}")
+    t1generator = Table1Generator(sids["stay_id"].to_list())
     t1 = t1generator.populate()
 
     print(t1)
