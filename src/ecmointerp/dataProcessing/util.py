@@ -6,7 +6,7 @@ all_inclusive_dtypes = {
     "charttime": "object",
     "storetime": "object",
     "itemid": "int",
-    "value": "float",
+    "value": "object",
     "valueuom": "object",
     "warning": "object",
     "valuenum": "float",
