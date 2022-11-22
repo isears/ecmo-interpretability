@@ -285,6 +285,44 @@ class Table1Generator(object):
             value=self._pprint_percent(len(rrt_subset)),
         )
 
+    def _tablegen_icds(self) -> None:
+        # Intra-aortic balloon pump
+        iabp_codes = set(
+            [
+                "0470041",
+                "04700D1",
+                "04700Z1",
+                "0470341",
+                "04703D1",
+                "04703Z1",
+                "0470441",
+                "04704D1",
+                "04704Z1",
+            ]
+        )
+
+        # Impella
+        impella_codes = set(["5A0221D"])
+
+        # Ventricular assist
+        va_codes = set(["Z95811"])
+
+        for name, code_set in {
+            "Intra-aortic Balloon Pump": iabp_codes,
+            "Impella": impella_codes,
+            "Ventricular Assist": va_codes,
+        }.items():
+            count = len(
+                self.all_df[
+                    self.all_df.apply(
+                        lambda row: len(set(row["icd_code"]).intersection(code_set)) > 0,
+                        axis=1,
+                    )
+                ]
+            )
+
+            self._add_table_row(item=name, value=self._pprint_percent(count))
+
     def populate(self) -> pd.DataFrame:
         tablegen_methods = [m for m in dir(self) if m.startswith("_tablegen")]
 
