@@ -288,19 +288,6 @@ class Table1Generator(object):
     def _tablegen_icds(self) -> None:
         diagnoses_icd = pd.read_csv("mimiciv/hosp/diagnoses_icd.csv")
         codes_of_interest = {
-            "Intra-aortic Balloon Pump": set(
-                [
-                    "0470041",
-                    "04700D1",
-                    "04700Z1",
-                    "0470341",
-                    "04703D1",
-                    "04703Z1",
-                    "0470441",
-                    "04704D1",
-                    "04704Z1",
-                ]
-            ),
             "Impella": set(["5A0221D"]),
             "Ventricular Assist": set(["Z95811"]),
         }
@@ -330,6 +317,15 @@ class Table1Generator(object):
 
         codes_of_interest["Epistaxis"] = set(["R040", "7847"])
 
+        codes_of_interest["Hemorrhage"] = set([]).union(
+            codes_of_interest["Epistaxis"],
+            codes_of_interest["Nonspecific Hemorrhage"],
+            codes_of_interest["Surgical Site Hemorrhage"],
+            codes_of_interest["Cannulation Site Hemorrhage"],
+            codes_of_interest["GI Hemorrhage"],
+            codes_of_interest["Intracerebral Hemorrhage"],
+        )
+
         dvt = ["45340"]
         dvt += get_codes_that_start_with("I8240")
         codes_of_interest["DVT"] = set(dvt)
@@ -346,11 +342,25 @@ class Table1Generator(object):
         unspec_thromb += get_codes_that_start_with("I74")
         codes_of_interest["Unspecified Thrombosis"] = set(unspec_thromb)
 
+        codes_of_interest["Thrombosis"] = set([]).union(
+            codes_of_interest["DVT"],
+            codes_of_interest["Pulmonary Embolism"],
+            codes_of_interest["Oxygenator thrombosis"],
+            codes_of_interest["Unspecified Thrombosis"],
+        )
+
         codes_of_interest["Cerebral Infarction"] = set(["43491", "I6350"])
 
         codes_of_interest["Seizure"] = set(["R569", "78039"])
 
         codes_of_interest["Brain Death"] = set(["34882", "G9382"])
+
+        codes_of_interest["Neurological"] = set([]).union(
+            codes_of_interest["Cerebral Infarction"],
+            codes_of_interest["Intracerebral Hemorrhage"],
+            codes_of_interest["Seizure"],
+            codes_of_interest["Brain Death"],
+        )
 
         codes_of_interest["Cardiac Arrest"] = set(["I469", "34882"])
 
